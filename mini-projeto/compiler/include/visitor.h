@@ -7,6 +7,7 @@ enum ExprResultType {
 	LLIR_REGISTER,
 	INTEGER_CONSTANT,
 	FLOAT_CONSTANT,
+	VOID_CONSTANT
 };
 
 typedef struct ExprResult ExprResult;
