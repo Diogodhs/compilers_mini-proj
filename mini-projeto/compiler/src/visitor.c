@@ -16,6 +16,7 @@ char regName[20][10];
 int regCounter = 0;
 //controle de variáveis dentro ou fora de função
 int inside = 0;
+int subExpr = 0;
  
 void visit_file (AST *root) {
     //printm(">>> file\n");
@@ -59,7 +60,7 @@ void visit_function_decl (AST *ast) {
                 for(int j = 0;j < 10;j++){
                     regName[regCounter][j] = params->list.first->next->ast->decl.variable.id->id.string[j];
                 }
-            }else if(i == 2){
+            }else if(i == 2){ 
                 for(int j = 0;j < 10;j++){
                     regName[regCounter][j] = params->list.first->next->next->ast->decl.variable.id->id.string[j];
                 }
@@ -250,17 +251,47 @@ ExprResult visit_function_call (AST *ast) {
 ExprResult visit_id (AST *ast) {
     //printm(">>> identifier\n");
     ExprResult ret = { }; // armazenar aqui
+    int strIgual = 1;
 
-    if (ast->id.type == TYPE_INT) {
+    //printf("Teste: Tipo = %d\n", ast->id.type);
+
+    if (ast->id.type == INTEGER_CONSTANT) {
+        printf("Teste 1\n");
         ret.int_value = ast->id.int_value;
-        ret.type = TYPE_INT;
-    } else if (ast->id.type == TYPE_FLOAT) {
+        ret.type = INTEGER_CONSTANT;
+    } else if (ast->id.type == FLOAT_CONSTANT) {
+        printf("Teste 2\n");
         ret.float_value = ast->id.float_value;
-        ret.type = TYPE_FLOAT;
-    }/*else{
-        ret.ssa_register = ast->id.ssa_register;
-        ret.type = TYPE_
-    }*/
+        ret.type = FLOAT_CONSTANT;
+    } else if (inside = 0){
+        printf("Teste 3\n");
+        for (int i = 0; i < varCounter; i++){
+            if (strcmp(varName[i], ast->id.string) == 0){
+                ret.int_value = varValue[i];
+                ret.type = INTEGER_CONSTANT;
+            }
+        }
+    }else if(inside != 0){
+        printf("Teste 4\n");
+        for (int i = 0; i < regCounter; i++)
+        {
+            for (int j = 0; ast->id.string[j] != NULL && regName[i][j] != NULL; j++)
+            {
+                //printf("Teste: %c != %c\n", ast->id.string[j], regName[i][j]);
+                if(ast->id.string[j] != regName[i][j]){
+                    strIgual = 0;
+                }
+            }
+            
+            if ( strIgual == 1 ){
+                ret.ssa_register = i;
+                ret.type = LLIR_REGISTER;
+                printf("Teste: Tem no registrador\n");
+            }else{
+                printf("Registrador não encontrado\n");
+            }
+        }
+    }
     
     //printm("<<< identifier\n");
     return ret;
@@ -284,145 +315,209 @@ ExprResult visit_unary_minus (AST *ast) {
 }
  
 ExprResult visit_add (AST *ast) {
-    regCounter++;
-	printm("\n%%%d = ", regCounter);
-	printm("add i32 ");
+    //printm(">>> ADD\n");
+    //regCounter++;
+	//printm("\n%%%d = ", regCounter);
+	//printm("add i32 ");
     ExprResult left, right, ret = {};
+    subExpr = 1;
     left  = visit_expr(ast->expr.binary_expr.left_expr);
+    subExpr = 1;
     right = visit_expr(ast->expr.binary_expr.right_expr);
     if (left.type == INTEGER_CONSTANT && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.int_value, right.int_value);
+		printm("%%%d = add i32 %ld, %ld\n", regCounter, left.int_value, right.int_value);
 		ast->id.ssa_register = left.int_value + right.int_value;
+        printf("Entrou na soma 1\n");
 	}
 	if (left.type == INTEGER_CONSTANT && right.type == LLIR_REGISTER){
-		printm("%ld, %ld", left.int_value, right.ssa_register);
+		printm("%%%d = add i32 %ld, %%%ld\n", regCounter, left.int_value, right.ssa_register);
 		ast->id.ssa_register = left.int_value + right.ssa_register;
+        printf("Entrou na soma 2\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.ssa_register, right.int_value);
+		printm("%%%d = add i32 %%%ld, %ld\n", regCounter, left.ssa_register, right.int_value);
 		ast->id.ssa_register = left.ssa_register + right.int_value;
+        printf("Entrou na soma 3\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == LLIR_REGISTER ){
-		printm("%ld, %ld", left.ssa_register, right.ssa_register);
+		printm("%%%d = add i32 %%%ld, %%%ld\n", regCounter, left.ssa_register, right.ssa_register);
 		ast->id.ssa_register = left.ssa_register + right.ssa_register;
+        printf("Entrou na soma 4\n");
 	}
     ret.int_value = left.int_value + right.int_value;
     ret.type = INTEGER_CONSTANT;
     //printm("\n");
+
+    regCounter++;
+    subExpr = 0;
+
+    //printm("<<< ADD\n");
     return ret;
 }
  
 ExprResult visit_sub (AST *ast) {
-    regCounter++;
-	printm("\n%%%d = ", regCounter);
-	printm("sub i32 ");
+    //printm(">>> SUB\n");
+    //regCounter++;
+	//printm("\n%%%d = ", regCounter);
+	//printm("sub i32 ");
     ExprResult left, right, ret = {};
+    subExpr = 1;
     left  = visit_expr(ast->expr.binary_expr.left_expr);
+    subExpr = 1;
     right = visit_expr(ast->expr.binary_expr.right_expr);
     if (left.type == INTEGER_CONSTANT && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.int_value, right.int_value);
+		printm("%%%d = sub i32 %ld, %ld\n", regCounter, left.int_value, right.int_value);
 		ast->id.ssa_register = left.int_value - right.int_value;
+        printf("Entrou na sub 1\n");
 	}
 	if (left.type == INTEGER_CONSTANT && right.type == LLIR_REGISTER){
-		printm("%ld, %ld", left.int_value, right.ssa_register);
+		printm("%%%d = sub i32 %ld, %%%ld\n", regCounter, left.int_value, right.ssa_register);
 		ast->id.ssa_register = left.int_value - right.ssa_register;
+        printf("Entrou na sub 2\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.ssa_register, right.int_value);
+		printm("%%%d = sub i32 %%%ld, %ld\n", regCounter, left.ssa_register, right.int_value);
 		ast->id.ssa_register = left.ssa_register - right.int_value;
+        printf("Entrou na sub 3\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == LLIR_REGISTER ){
-		printm("%ld, %ld", left.ssa_register, right.ssa_register);
+		printm("%%%d = sub i32 %%%ld, %%%ld\n", regCounter, left.ssa_register, right.ssa_register);
 		ast->id.ssa_register = left.ssa_register - right.ssa_register;
+        printf("Entrou na sub 4\n");
 	}
     ret.int_value = left.int_value - right.int_value;
     ret.type = INTEGER_CONSTANT;
     //printm("\n");
+
+    regCounter++;
+    subExpr = 0;
+
+    //printm("<<< SUB\n");
     return ret;
 }
  
 ExprResult visit_mul (AST *ast) {
-    regCounter++;
-	printm("\n%%%d = ", regCounter);
-	printm("mul i32 ");
+    //printm(">>> MUL\n");
+    //regCounter++;
+	//printm("\n%%%d = ", regCounter);
+	//printm("mul i32 ");
     ExprResult left, right, ret = {};
+    subExpr = 1;
     left  = visit_expr(ast->expr.binary_expr.left_expr);
+    subExpr = 1;
     right = visit_expr(ast->expr.binary_expr.right_expr);
     if (left.type == INTEGER_CONSTANT && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.int_value, right.int_value);
+		printm("%%%d = mul i32 %ld, %ld\n", regCounter, left.int_value, right.int_value);
 		ast->id.ssa_register = left.int_value * right.int_value;
+        printf("Entrou na mult 1\n");
 	}
 	if (left.type == INTEGER_CONSTANT && right.type == LLIR_REGISTER){
-		printm("%ld, %ld", left.int_value, right.ssa_register);
+		printm("%%%d = mul i32 %ld, %%%ld\n", regCounter, left.int_value, right.ssa_register);
 		ast->id.ssa_register = left.int_value * right.ssa_register;
+        printf("Entrou na mult 2\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.ssa_register, right.int_value);
+		printm("%%%d = mul i32 %%%ld, %ld\n", regCounter, left.ssa_register, right.int_value);
 		ast->id.ssa_register = left.ssa_register * right.int_value;
+        printf("Entrou na mult 3\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == LLIR_REGISTER ){
-		printm("%ld, %ld", left.ssa_register, right.ssa_register);
+		printm("%%%d = mul i32 %%%ld, %%%ld\n", regCounter, left.ssa_register, right.ssa_register);
 		ast->id.ssa_register = left.ssa_register * right.ssa_register;
+        printf("Entrou na mult 4\n");
 	}
     ret.int_value = left.int_value * right.int_value;
     ret.type = INTEGER_CONSTANT;
     //printm("\n");
+
+    regCounter++;
+    subExpr = 0;
+
+    //printm("<<< MUL\n");
     return ret;
 }
  
 ExprResult visit_div (AST *ast) {
-	regCounter++;
-	printm("\n%%%d = ", regCounter);
-	printm("div i32 ");
+    //printm(">>> DIV\n");
+	//regCounter++;
+	//printm("\n%%%d = ", regCounter);
+	//printm("div i32 ");
     ExprResult left, right, ret = {};
+    subExpr = 1;
     left  = visit_expr(ast->expr.binary_expr.left_expr);
+    subExpr = 1;
     right = visit_expr(ast->expr.binary_expr.right_expr);
     if (left.type == INTEGER_CONSTANT && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.int_value, right.int_value);
+		printm("%%%d = div i32 %ld, %ld\n", regCounter, left.int_value, right.int_value);
 		ast->id.ssa_register = left.int_value / right.int_value;
+        printf("Entrou na div 1\n");
 	}
 	if (left.type == INTEGER_CONSTANT && right.type == LLIR_REGISTER){
-		printm("%ld, %ld", left.int_value, right.ssa_register);
+		printm("%%%d = div i32 %ld, %%%ld\n", regCounter, left.int_value, right.ssa_register);
 		ast->id.ssa_register = left.int_value / right.ssa_register;
+        printf("Entrou na div 2\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.ssa_register, right.int_value);
+		printm("%%%d = div i32 %%%ld, %ld\n", regCounter, left.ssa_register, right.int_value);
 		ast->id.ssa_register = left.ssa_register / right.int_value;
+        printf("Entrou na div 3\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == LLIR_REGISTER ){
-		printm("%ld, %ld", left.ssa_register, right.ssa_register);
+		printm("%%%d = div i32 %%%ld, %%%ld\n", regCounter, left.ssa_register, right.ssa_register);
 		ast->id.ssa_register = left.ssa_register / right.ssa_register;
+        printf("Entrou na div 4\n");
 	}
     /*printm("%ld %ld", left.int_value, right.int_value);
     ret.int_value = left.int_value / right.int_value;
     ret.type = TYPE_INT;*/
     //printm("\n");
+
+    regCounter++;
+    subExpr = 0;
+
+    //printm("<<< DIV\n");
     return ret;
 }
  
 ExprResult visit_mod (AST *ast) {
-    regCounter++;
-	printm("\n%%%d = ", regCounter);
-	printm("srem i32 ");
+    //printm(">>> MOD\n");
+	//printm("\n%%%d = ", regCounter);
+	//printm("srem i32 ");
+
     ExprResult left, right, ret = {};
+    subExpr = 1;
     left  = visit_expr(ast->expr.binary_expr.left_expr);
+    subExpr = 1;
     right = visit_expr(ast->expr.binary_expr.right_expr);
+
+    printf("Tipo da variável da esquerda = %d\n", left.type);
+    printf("Tipo da variável da direita = %d\n", right.type);
+
     if (left.type == INTEGER_CONSTANT && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.int_value, right.int_value);
+		printm("%%%d = srem i32 %ld, %ld\n", regCounter, left.int_value, right.int_value);
 		ast->id.ssa_register = left.int_value % right.int_value;
+        printf("Entrou na mod 1\n");
 	}
 	if (left.type == INTEGER_CONSTANT && right.type == LLIR_REGISTER){
-		printm("%ld, %ld", left.int_value, right.ssa_register);
+		printm("%%%d = srem i32 %ld, %%%ld\n", regCounter, left.int_value, right.ssa_register);
 		ast->id.ssa_register = left.int_value % right.ssa_register;
+        printf("Entrou na mod 2\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == INTEGER_CONSTANT){
-		printm("%ld, %ld", left.ssa_register, right.int_value);
+		printm("%%%d = srem i32 %%%ld, %ld\n", regCounter, left.ssa_register, right.int_value);
 		ast->id.ssa_register = left.ssa_register % right.int_value;
+        printf("Entrou na mod 3\n");
 	}
 	if (left.type == LLIR_REGISTER && right.type == LLIR_REGISTER ){
-		printm("%ld, %ld", left.ssa_register, right.ssa_register);
+		printm("%%%d = srem i32 %%%ld, %%%ld\n", regCounter, left.ssa_register, right.ssa_register);
 		ast->id.ssa_register = left.ssa_register % right.ssa_register;
+        printf("Entrou na mod 4\n");
 	}
+    regCounter++;
+    subExpr = 0;
+    /* ret.int_value = left.int_value % right.int_value;
+    ret.type = INTEGER_CONSTANT; */
 
+    //printm("<<< MOD\n");
     return ret;
 }
