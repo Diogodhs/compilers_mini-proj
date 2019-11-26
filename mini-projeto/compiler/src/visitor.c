@@ -16,6 +16,7 @@ char regName[20][10];
 int regCounter = 0;
 //controle de variáveis dentro ou fora de função
 int inside = 0;
+int functionMain = 0;
  
 void visit_file (AST *root) {
     //printm(">>> file\n");
@@ -40,7 +41,11 @@ void visit_function_decl (AST *ast) {
     AST *params = ast->decl.function.param_decl_list;
 
     inside = 1;
-	printm("\ndefine i32 @%s(", ast->decl.function.id->id.string);    
+	printm("\ndefine i32 @%s(", ast->decl.function.id->id.string);
+
+    if(strcmp(ast->decl.function.id->id.string, "main") == 0){
+        functionMain = 1;
+    }
 
     if (params != NULL) {
         for (int i = 0; i < params->list.num_items; i++) {
@@ -97,6 +102,7 @@ void visit_function_decl (AST *ast) {
 
     inside = 0;
     regCounter = 0;
+    functionMain = 0;
     printm("\n}\n");
 
     //Resetamos a tabela de registradores colocando '-' em todos
@@ -160,6 +166,7 @@ void visit_var_decl (AST *ast) {
             regName[regCounter][i] = id->id.string[i];
         }
     }
+
     if (ast->decl.variable.expr != NULL && inside == 0) {
         ExprResult expr = visit_expr(ast->decl.variable.expr);
         printf(" %ld", expr.int_value);
@@ -169,6 +176,11 @@ void visit_var_decl (AST *ast) {
     {
         ExprResult expr = visit_expr(ast->decl.variable.expr);
     }
+    else if(ast->decl.variable.expr == NULL && inside == 1)
+    {
+        printf("%%%d = alloca i32", regCounter);
+        regCounter++;
+    }
     
     printf("\n");
 }
@@ -177,9 +189,11 @@ void visit_var_decl (AST *ast) {
 ExprResult visit_return_stat (AST *ast) {
     //printm(">>> return stat\n");
     ExprResult ret = { 0, TYPE_VOID };
-    if (ast->stat.ret.expr) {
+    if (ast->stat.ret.expr && functionMain == 0) {
         ret = visit_expr(ast->stat.ret.expr);
-		printf("\nret i32 %%%d", regCounter);
+		printf("\nret i32 %%%d", regCounter-1);
+    }else if(functionMain == 1){
+        printf("\nret i32 0");
     }
 	else{
 		printf("\nret void");
@@ -189,16 +203,31 @@ ExprResult visit_return_stat (AST *ast) {
 }
  
 void visit_assign_stat (AST *assign) {
-    printm(">>> assign stat\n");
+    //printm(">>> assign stat\n");
     ExprResult expr = visit_expr(assign->stat.assign.expr);
-    for (int i = 0; assign->expr.id.id->id.string[i] != NULL; i++)
-    {
-        regName[regCounter-1][i] = assign->expr.id.id->id.string[i];
+
+    int aux = 0;
+    for (int i = 0; i <= varCounter; i++){
+        if(strcmp(assign->expr.id.id->id.string, varName[i]) == 0){
+            printf("store i32 %%%d, i32* @%s\n", regCounter-1, varName[i]);
+            aux = 0;
+            i = varCounter + 1;
+        }else{
+            aux = 1;
+        }
     }
+    if(aux == 1){
+        for (int i = 0; assign->expr.id.id->id.string[i] != NULL; i++)
+        {
+            regName[regCounter-1][i] = assign->expr.id.id->id.string[i];
+        }
+    }
+
+    
 
     //printf("Nome do registrador %s: contador %d\n", regName[regCounter], regCounter);
     
-    printm("<<< assign stat\n");
+    //printm("<<< assign stat\n");
 }
  
 ExprResult visit_expr (AST *expr) {
@@ -226,6 +255,12 @@ ExprResult visit_expr (AST *expr) {
     case LITERAL_EXPRESSION:
         ret = visit_literal(expr); break;
     case IDENTIFIER_EXPRESSION:
+        for (int i = 0; i <= varCounter; i++){
+            if(strcmp(expr->expr.id.id->id.string, varName[i]) == 0){
+                printf("%%%d = load i32, i32* @%s\n", regCounter, varName[i]);
+                regCounter++;
+            }
+        }
         ret = visit_id(expr->expr.id.id); break;
     case FUNCTION_CALL_EXPRESSION:
         ret = visit_function_call(expr); break;
@@ -313,7 +348,6 @@ ExprResult visit_add (AST *ast) {
     if (left.type == INTEGER_CONSTANT && right.type == INTEGER_CONSTANT){
 		printm("%%%d = add i32 %ld, %ld\n", regCounter, left.int_value, right.int_value);
 		ast->id.ssa_register = left.int_value + right.int_value;
-        ret.ssa_register = regCounter;
         //printf("Entrou na soma 1\n");
 	}
 	if (left.type == INTEGER_CONSTANT && right.type == LLIR_REGISTER){
